@@ -1,0 +1,30 @@
+	{
+		"local": [
+			{
+				"user": {
+					"name": "{0}",
+                    "domain": {
+                        "name": "globus"
+                    }
+				},
+				"group": {
+					"name": $project,
+					"domain": {
+						"name": "cac"
+					}
+				}
+				
+			}
+		],
+		"remote": [
+			{
+				"type": "OIDC-email"
+			},
+			{
+				"type": "OIDC-sub",
+				"any_one_of": [
+					$globus_subs
+				] 
+			}
+		]
+	}

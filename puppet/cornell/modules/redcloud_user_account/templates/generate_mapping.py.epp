@@ -1,0 +1,55 @@
+from string import Template
+import ldap
+import os
+from subprocess import call,check_output
+
+# Initialize LDAP connection
+l = ldap.initialize('<%= $ldap_url %>')
+l.simple_bind_s('<%= $ldap_bind_dn %>','<%= $ldap_bind_password %>')
+
+# Query for Red Cloud accounts
+r = l.search_s('OU=Projects,OU=CAC Recovery Model,DC=tc,DC=cornell,DC=edu',ldap.SCOPE_SUBTREE,'(rsCacEucaEnable=TRUE)',['cn', 'member'])
+
+mapping = ""
+
+# Generate mapping for project
+with open('mapping_template.json', 'r') as f:
+	t = f.read()
+template = Template(t)
+
+for dn,entries in r:
+	project = '"'+entries['cn'][0]+'"'
+
+	globus_subs= "";
+	if 'member' in entries: 
+		for m in entries['member']:
+			rsub = l.search_s(m, ldap.SCOPE_SUBTREE, '(rsCacEucaEnable=TRUE)',['rsCacGlobusSub'])
+			for user,sub in rsub:
+				if 'rsCacGlobusSub' in sub:
+					if globus_subs:
+						globus_subs += ","
+					globus_subs += '"'+sub['rsCacGlobusSub'][0]+'"'
+
+	if globus_subs:
+		if mapping:
+			mapping += ","
+		mapping += template.substitute(project=project, globus_subs=globus_subs)
+
+mapping ="["+mapping+"]"
+
+if os.path.isfile('/tmp/mapping'):
+	os.remove('/tmp/mapping')
+f = open('/tmp/mapping','w')
+f.write(mapping)
+f.close()
+
+if "| <%= $mapping_name %> |" in check_output(["openstack","mapping list"]):
+	cmd = "openstack mapping set --rules /tmp/mapping <%= $mapping_name %>"
+	call(cmd,shell=True)
+else:
+	cmd = "openstack mapping create --rules /tmp/mapping <%= $mapping_name %>"
+	call(cmd,shell=True)
+	cmd = "openstack federation protocol create --identity-provider globus --mapping <%= $mapping_name %> openidc"
+	call(cmd,shell=True)
+
+os.remove('/tmp/mapping')

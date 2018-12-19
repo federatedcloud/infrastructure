@@ -1,0 +1,3 @@
+-----BEGIN PRIVATE KEY-----
+<%= $ssl_key %>
+-----END PRIVATE KEY-----
