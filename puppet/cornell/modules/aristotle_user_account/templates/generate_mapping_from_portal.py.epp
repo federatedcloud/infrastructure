@@ -1,0 +1,87 @@
+#!/usr/bin/python
+from string import Template
+import os
+from subprocess import call,check_output
+import json
+import urllib2
+
+mapping_template = '''	{
+		"local": [
+			{
+				"user": {
+					"name": "{0}",
+                    "domain": {
+                        "name": "globus"
+                    }
+				},
+				"group": {
+					"name": $project,
+					"domain": {
+						"name": "<%= $aristotle_domain %>"
+					}
+				}
+				
+			}
+		],
+		"remote": [
+			{
+				"type": "OIDC-email"
+			},
+			{
+				"type": "OIDC-sub",
+				"any_one_of": [
+					$globus_subs
+				] 
+			}
+		]
+	}
+'''
+
+# Download user accounts from Aristotle federation portal
+resp = urllib2.urlopen('https://federatedcloud.org/dashboard/GlobusListJSON.php')
+t = resp.read()
+users = json.loads(t)
+
+# Build a dictionary of globus subs per Aristotle project
+projects = {}
+for u in users:
+	for p in u['projects']:
+		if p not in projects.keys():
+			projects[p] = []
+		projects[p] += [ u['id'] ]
+
+# Generate mapping file for keystone
+template = Template(mapping_template)
+
+mapping = ""
+for p in projects:
+	# For each project, generate globus_subs of users in the project
+	globus_subs = ""
+	for g in projects[p]:
+		if globus_subs:
+			globus_subs += ","
+		globus_subs += "\""+g+"\"" 
+	# Add the project entry to the mapping file
+	if mapping:
+			mapping += ","
+	mapping += template.substitute(project="\""+p+"\"", globus_subs=globus_subs)
+
+mapping ="["+mapping+"]"
+
+if os.path.isfile('/tmp/mapping'):
+	os.remove('/tmp/mapping')
+f = open('/tmp/mapping','w')
+f.write(mapping)
+f.close()
+
+if "| <%= $aristotle_mapping_name %> |" in check_output(["openstack","mapping list"]):
+	cmd = "openstack mapping set --rules /tmp/mapping <%= $aristotle_mapping_name %>"
+	call(cmd,shell=True)
+else:
+	cmd = "openstack mapping create --rules /tmp/mapping <%= $aristotle_mapping_name %>"
+	call(cmd,shell=True)
+	cmd = "openstack federation protocol create --identity-provider globus --mapping <%= $aristotle_mapping_name %> openidc"
+	call(cmd,shell=True)
+
+os.remove('/tmp/mapping')
+
