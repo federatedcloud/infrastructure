@@ -1,0 +1,12 @@
+{
+	"OS_USERNAME": "<user name>",
+	"OS_PASSWORD": "<password>",
+	"OS_AUTH_URL": "<cloud URL>",
+	"OS_PROJECT_NAME": "<project name>",
+	"OS_REGION_NAME": "<region name>",
+	"OS_PROJECT_DOMAIN_NAME": "<project domain name>",
+	"OS_USER_DOMAIN_NAME": "<user domain name>",
+	"OS_IDENTITY_API_VERSION": "3",
+	"OS_INTERFACE": "admin"
+}
+
