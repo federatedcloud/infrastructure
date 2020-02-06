@@ -142,7 +142,7 @@ def getProjectUsage():
 
     for server in nova.servers.list(detailed=True, search_opts=search_opts):
         # Charge for all others
-        if server.status == "SHELVED_OFFLOADED":
+        if server.status == "SHELVED_OFFLOADED" or server.flavor['id'] not in flavors.keys() or server.tenant_id not in pros.keys():
             continue
         vm={}
         vm['id']=server.id
